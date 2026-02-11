@@ -1,4 +1,5 @@
 import Fuse from 'fuse.js';
+import path from "path";
 import { EditableFileView, Events, Plugin, TFile } from 'obsidian';
 import { shellPath } from 'shell-path';
 
@@ -12,6 +13,7 @@ import {
   noteExportPrompt,
 } from './bbt/exportNotes';
 import './bbt/template.helpers';
+import { getItemJSONFromCiteKeys } from './bbt/jsonRPC';
 import {
   currentVersion,
   downloadAndExtract,
@@ -82,6 +84,15 @@ export default class ZoteroConnector extends Plugin {
     this.settings.exportFormats.forEach((f) => {
       this.addExportCommand(f);
     });
+
+    this.addCommand({
+      id: 'update-notes',
+      name: 'Update Notes',
+      callback: async () => {
+        await this.updateNotes();
+      },
+    });
+
 
     this.addCommand({
       id: 'zdc-insert-notes',
@@ -280,6 +291,45 @@ export default class ZoteroConnector extends Plugin {
       }
     }
   }
+
+async updateNotes() {
+
+  const files = this.app.vault.getFiles();
+  const citekeys = new Set<string>();
+
+  for (const file of files) {
+    if (!file.path.endsWith(".md")) continue;
+
+    const content = await this.app.vault.cachedRead(file);
+    const fm = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!fm) continue;
+    const match = fm[1].match(/citekey:\s*(.+)/);
+    if (match) {
+      const key = match[1].trim();
+      if (key && key !== "{{citekey}}") {
+        citekeys.add(key);
+      }
+    }
+  }
+
+  if (!citekeys.size) {
+    new Notice("No Zotero keys found");
+    return;
+  }
+
+  const formatName = this.settings.exportFormats[0]?.name;
+  if (!formatName) {
+    new Notice("⚠️ No export format configured");
+    return;
+  }
+
+  for (const citekey of citekeys) {
+    await this.runImport(formatName, citekey);
+  }
+
+  new Notice(`✅ Updated ${citekeys.size} notes`);
+  
+}
 
   async loadSettings() {
     const loadedSettings = await this.loadData();

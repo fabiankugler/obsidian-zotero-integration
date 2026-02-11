@@ -313,9 +313,10 @@ export async function getItemJSONFromCiteKeys(
   libraryID: number
 ) {
   let res: string;
-
-  const modal = new LoadingModal(app, 'Fetching data from Zotero...');
-  modal.open();
+  // Remove popup window for fetching Zotero data
+  new Notice(`Fetching data from Zotero...`, 1000)
+  // const modal = new LoadingModal(app, 'Fetching data from Zotero...');
+  // modal.open();
 
   const qid = Symbol();
   try {
@@ -339,14 +340,14 @@ export async function getItemJSONFromCiteKeys(
     });
   } catch (e) {
     console.error(e);
-    modal.close();
+    // modal.close();
     new Notice(`Error retrieving item data: ${e.message}`, 10000);
     ZQueue.end(qid);
     return null;
   }
 
   ZQueue.end(qid);
-  modal.close();
+  // modal.close();
 
   try {
     const parsed = JSON.parse(res);
